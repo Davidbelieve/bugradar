@@ -25,7 +25,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main { padding: 1.5rem 2rem; }
-    .stMetric { background: #f8f9fa; border-radius: 10px; padding: 1rem; }
+    .stMetric { border-radius: 10px; padding: 1rem; }
     .risk-high { color: #A32D2D; font-weight: 600; }
     .risk-med  { color: #854F0B; font-weight: 600; }
     .risk-low  { color: #3B6D11; font-weight: 600; }
@@ -53,6 +53,9 @@ with col_status:
             st.error("API Error")
     except:
         st.error("API Offline")
+    if st.button("🔄 Refresh"):
+        st.cache_data.clear()
+        st.rerun()
 
 st.divider()
 
