@@ -264,29 +264,32 @@ chart_col, rec_col = st.columns([1, 1])
 
 with chart_col:
     st.markdown("#### Risk score by module")
-    chart_df = results_df.copy()
-    chart_df["colour"] = chart_df["risk_score"].apply(
-        lambda x: "#E24B4A" if x >= 0.6 else ("#EF9F27" if x >= 0.3 else "#639922")
-    )
-    fig = go.Figure(go.Bar(
-        x=chart_df["risk_score"],
-        y=chart_df["module"],
-        orientation="h",
-        marker_color=chart_df["colour"],
-        text=chart_df["risk_score"].apply(lambda x: f"{x:.3f}"),
-        textposition="outside"
-    ))
-    fig.update_layout(
-        height=max(200, len(chart_df) * 60),
-        margin=dict(l=0, r=40, t=10, b=10),
-        xaxis=dict(range=[0, 1.1], title="Risk Score"),
-        yaxis=dict(title=""),
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(size=12)
-    )
-    fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.06)")
-    st.plotly_chart(fig, use_container_width=True)
+    chart_df = results_df[results_df["risk_score"].notna()].copy()
+    if len(chart_df) == 0:
+        st.warning("No predictions available — check API connection.")
+    else:
+        chart_df["colour"] = chart_df["risk_score"].apply(
+            lambda x: "#E24B4A" if x >= 0.6 else ("#EF9F27" if x >= 0.3 else "#639922")
+        )
+        fig = go.Figure(go.Bar(
+            x=chart_df["risk_score"],
+            y=chart_df["module"],
+            orientation="h",
+            marker_color=chart_df["colour"],
+            text=chart_df["risk_score"].apply(lambda x: f"{x:.3f}"),
+            textposition="outside"
+        ))
+        fig.update_layout(
+            height=max(200, len(chart_df) * 60),
+            margin=dict(l=0, r=40, t=10, b=10),
+            xaxis=dict(range=[0, 1.1], title="Risk Score"),
+            yaxis=dict(title=""),
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(size=12)
+        )
+        fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.06)")
+        st.plotly_chart(fig, use_container_width=True)
 
 with rec_col:
     st.markdown("#### Recommendations")
