@@ -5,3 +5,7 @@ numpy>=2.0.0
 joblib>=1.4.2
 pydantic>=2.7.1
 python-multipart>=0.0.9
+streamlit>=1.35.0
+plotly>=5.22.0
+requests>=2.31.0
+pandas>=2.0.0
