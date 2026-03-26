@@ -4,7 +4,10 @@
 # Run locally: uvicorn main:app --reload
 # ============================================================
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from radon.complexity import cc_visit, cc_rank
+from radon.metrics import h_visit
+from radon.raw import analyze
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from typing import Optional
@@ -88,6 +91,24 @@ class PredictionResult(BaseModel):
     top_risk_factors: list # top 3 features driving the prediction
     recommendation: str
 
+    class FunctionResult(BaseModel):
+     function_name:    str
+    line_number:      int
+    risk_score:       float
+    verdict:          str
+    complexity:       int
+    rank:             str
+    top_risk_factors: list
+    recommendation:   str
+
+
+class PythonFileResult(BaseModel):
+    filename:         str
+    total_functions:  int
+    high_risk:        int
+    medium_risk:      int
+    low_risk:         int
+    functions:        list
 
 # ── Helper: risk label from probability ──────────────────────
 def get_verdict(prob: float) -> tuple[str, str]:
@@ -97,6 +118,41 @@ def get_verdict(prob: float) -> tuple[str, str]:
         return "Medium Risk", "This module shows some defect indicators — worth a review."
     else:
         return "High Risk",   "Strong defect signals detected — prioritise this module for review."
+
+# ── Radon metric extractor ────────────────────────────────────
+def extract_radon_metrics(source_code: str, func_name: str) -> dict:
+    raw = analyze(source_code)
+    hal = h_visit(source_code)
+    h   = hal[0] if hal else None
+    blocks  = cc_visit(source_code)
+    func_cc = next((b for b in blocks if b.name == func_name), None)
+    v_g     = func_cc.complexity if func_cc else 1
+    rank    = cc_rank(v_g)
+    return {
+        "loc":               raw.loc,
+        "v(g)":              v_g,
+        "ev(g)":             max(1, v_g - (raw.lloc // 10)),
+        "iv(g)":             max(1, v_g // 2),
+        "n":                 (h.total_operators + h.total_operands) if h else 0,
+        "v":                 h.volume     if h else 0,
+        "l":                 h.effort / h.volume if (h and h.volume > 0) else 0,
+        "d":                 h.difficulty if h else 0,
+        "i":                 h.volume / h.difficulty if (h and h.difficulty > 0) else 0,
+        "e":                 h.effort     if h else 0,
+        "b":                 h.bugs       if h else 0,
+        "t":                 h.time       if h else 0,
+        "lOCode":            raw.lloc,
+        "lOComment":         raw.comments,
+        "lOBlank":           raw.blank,
+        "locCodeAndComment": raw.multi,
+        "uniq_Op":           h.distinct_operators if h else 0,
+        "uniq_Opnd":         h.distinct_operands  if h else 0,
+        "total_Op":          h.total_operators    if h else 0,
+        "total_Opnd":        h.total_operands     if h else 0,
+        "branchCount":       max(0, v_g * 2 - 1),
+        "_rank":             rank,
+        "_cc":               v_g
+    }
 
 
 # ── Helper: top contributing features ────────────────────────
@@ -234,4 +290,75 @@ def predict_batch(modules: list[CodeMetrics]):
         "medium_risk":     sum(1 for r in results if r.verdict == "Medium Risk"),
         "low_risk":        sum(1 for r in results if r.verdict == "Low Risk"),
         "results":         results
+    }
+
+
+
+@app.post("/predict/python", tags=["Prediction"])
+async def predict_python_file(file: UploadFile = File(...)):
+    """
+    Upload a .py file — BugOracle extracts complexity metrics
+    per function using Radon and returns defect risk scores.
+    """
+    if not file.filename.endswith('.py'):
+        raise HTTPException(status_code=400,
+            detail="Only .py files are supported.")
+
+    source_code = (await file.read()).decode('utf-8', errors='replace')
+
+    if len(source_code.strip()) == 0:
+        raise HTTPException(status_code=400, detail="File is empty.")
+
+    try:
+        blocks = cc_visit(source_code)
+    except Exception as ex:
+        raise HTTPException(status_code=422,
+            detail=f"Could not parse Python file: {str(ex)}")
+
+    if not blocks:
+        raise HTTPException(status_code=422,
+            detail="No functions found in file. Add at least one function.")
+
+    results = []
+    for block in blocks:
+        try:
+            metrics = extract_radon_metrics(source_code, block.name)
+            rank    = metrics.pop('_rank')
+            cc_val  = metrics.pop('_cc')
+
+            input_values = np.array([[metrics[f] for f in features]])
+            input_scaled = scaler.transform(input_values)
+            risk_score   = float(model.predict_proba(input_scaled)[0][1])
+            verdict, confidence = get_verdict(risk_score)
+            top_factors  = get_top_factors(input_values)
+
+            if verdict == "High Risk":
+                rec = f"Refactor {block.name} immediately — complexity={cc_val} (rank {rank})."
+            elif verdict == "Medium Risk":
+                rec = f"Review {block.name} next sprint. Consider splitting into smaller functions."
+            else:
+                rec = f"{block.name} looks clean. Standard review applies."
+
+            results.append({
+                "function_name":    block.name,
+                "line_number":      getattr(block, 'lineno', 1),
+                "risk_score":       round(risk_score, 4),
+                "verdict":          verdict,
+                "complexity":       cc_val,
+                "rank":             rank,
+                "top_risk_factors": top_factors,
+                "recommendation":   rec
+            })
+        except Exception:
+            continue
+
+    results.sort(key=lambda r: r["risk_score"], reverse=True)
+
+    return {
+        "filename":        file.filename,
+        "total_functions": len(results),
+        "high_risk":       sum(1 for r in results if r["verdict"] == "High Risk"),
+        "medium_risk":     sum(1 for r in results if r["verdict"] == "Medium Risk"),
+        "low_risk":        sum(1 for r in results if r["verdict"] == "Low Risk"),
+        "functions":       results
     }
