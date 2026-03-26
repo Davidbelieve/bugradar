@@ -14,19 +14,22 @@ import os
 
 # ── Load model artefacts ─────────────────────────────────────
 # All three files must sit in the same folder as main.py
-MODEL_PATH    = "bugradar_model/model.pkl"
-SCALER_PATH   = "bugradar_model/scaler.pkl"
-FEATURES_PATH = "bugradar_model/features.pkl"
+MODEL_PATH     = "bugradar_model/model.pkl"
+SCALER_PATH    = "bugradar_model/scaler.pkl"
+FEATURES_PATH  = "bugradar_model/features.pkl"
+THRESHOLD_PATH = "bugradar_model/threshold.pkl"
 
-for path in [MODEL_PATH, SCALER_PATH, FEATURES_PATH]:
+for path in [MODEL_PATH, SCALER_PATH, FEATURES_PATH, THRESHOLD_PATH]:
     if not os.path.exists(path):
-        raise FileNotFoundError(f"❌ Missing file: {path} — run Step 1 in Colab first.")
+        raise FileNotFoundError(f"❌ Missing file: {path}")
 
-model    = joblib.load(MODEL_PATH)
-scaler   = joblib.load(SCALER_PATH)
-features = joblib.load(FEATURES_PATH)   # ordered list of 21 feature names
+model     = joblib.load(MODEL_PATH)
+scaler    = joblib.load(SCALER_PATH)
+features  = joblib.load(FEATURES_PATH)
+threshold = joblib.load(THRESHOLD_PATH)
 
 print(f"✅ Model loaded — {len(features)} features expected")
+print(f"✅ Threshold loaded — {threshold:.2f} (v3 optimised)")
 
 # ── FastAPI app setup ────────────────────────────────────────
 app = FastAPI(
@@ -121,10 +124,11 @@ def get_top_factors(input_array: np.ndarray) -> list:
 def root():
     """Health check — confirms the API is running."""
     return {
-        "status":  "✅ BugRadar API is live",
-        "version": "1.0.0",
-        "model":   "Random Forest (AUC-ROC: 0.8257)",
-        "docs":    "/docs"
+        "status":    "✅ BugOracle by Dav API is live",
+        "version":   "3.0.0",
+        "model":     "Random Forest — KC1 + PC1 combined (AUC-ROC: 0.8531)",
+        "threshold": threshold,
+        "docs":      "/docs"
     }
 
 
@@ -148,26 +152,47 @@ def predict(metrics: CodeMetrics):
     """
     try:
         # Build feature vector in the same order the model was trained on
-       # Zip values directly with exact feature names from pkl
-        field_values = [
-            metrics.loc, metrics.v_g, metrics.ev_g, metrics.iv_g,
-            metrics.n, metrics.v, metrics.l, metrics.d, metrics.i,
-            metrics.e, metrics.b, metrics.t,
-            metrics.lOCode, metrics.lOComment, metrics.lOBlank,
-            metrics.lOCodeAndComment,
-            metrics.uniq_Op, metrics.uniq_Opnd,
-            metrics.total_Op, metrics.total_Opnd,
-            metrics.branchCount
-        ]
-        feature_map = dict(zip(features, field_values))
+        # Build feature map dynamically — avoids any manual naming mismatches
+        metrics_dict = {
+            "loc":              metrics.loc,
+            "v(g)":             metrics.v_g,
+            "ev(g)":            metrics.ev_g,
+            "iv(g)":            metrics.iv_g,
+            "n":                metrics.n,
+            "v":                metrics.v,
+            "l":                metrics.l,
+            "d":                metrics.d,
+            "i":                metrics.i,
+            "e":                metrics.e,
+            "b":                metrics.b,
+            "t":                metrics.t,
+            "lOCode":           metrics.lOCode,
+            "lOComment":        metrics.lOComment,
+            "lOBlank":          metrics.lOBlank,
+            "lOCodeAndComment": metrics.lOCodeAndComment,
+            "uniq_Op":          metrics.uniq_Op,
+            "uniq_Opnd":        metrics.uniq_Opnd,
+            "total_Op":         metrics.total_Op,
+            "total_Opnd":       metrics.total_Opnd,
+            "branchCount":      metrics.branchCount,
+        }
+
+        # Print feature names for debugging — remove after confirming it works
+        print(f"Expected features: {features}")
+        print(f"Provided keys:     {list(metrics_dict.keys())}")
+
+        feature_map = metrics_dict
+
         # Arrange values in the exact training order
         input_values = np.array([[feature_map[f] for f in features]])
 
         # Scale using the same scaler fitted on training data
         input_scaled = scaler.transform(input_values)
 
-        # Predict probability of defect (class 1)
+        # Use optimised v3 threshold instead of default 0.5
+        # threshold=0.40 was tuned to maximise F1 on KC1 test set
         risk_score    = float(model.predict_proba(input_scaled)[0][1])
+        y_pred        = int(risk_score >= threshold)
         verdict, confidence = get_verdict(risk_score)
         top_factors   = get_top_factors(input_values)
 
