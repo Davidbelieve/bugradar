@@ -121,34 +121,41 @@ def get_verdict(prob: float) -> tuple[str, str]:
 
 # ── Radon metric extractor ────────────────────────────────────
 def extract_radon_metrics(source_code: str, func_name: str) -> dict:
-    raw = analyze(source_code)
-    hal = h_visit(source_code)
-    h   = hal[0] if hal else None
+    raw     = analyze(source_code)
+    hal     = h_visit(source_code)
+    h       = hal[0] if hal else None
     blocks  = cc_visit(source_code)
     func_cc = next((b for b in blocks if b.name == func_name), None)
     v_g     = func_cc.complexity if func_cc else 1
     rank    = cc_rank(v_g)
+
+    # Halstead attributes use h1/h2/N1/N2 naming convention
+    n   = (h.N1 + h.N2)          if h else 0
+    vol = h.volume                if h else 0
+    dif = h.difficulty            if h else 0
+    eff = h.effort                if h else 0
+
     return {
         "loc":               raw.loc,
         "v(g)":              v_g,
         "ev(g)":             max(1, v_g - (raw.lloc // 10)),
         "iv(g)":             max(1, v_g // 2),
-        "n":                 (h.total_operators + h.total_operands) if h else 0,
-        "v":                 h.volume     if h else 0,
-        "l":                 h.effort / h.volume if (h and h.volume > 0) else 0,
-        "d":                 h.difficulty if h else 0,
-        "i":                 h.volume / h.difficulty if (h and h.difficulty > 0) else 0,
-        "e":                 h.effort     if h else 0,
+        "n":                 n,
+        "v":                 vol,
+        "l":                 (eff / vol) if vol > 0 else 0,
+        "d":                 dif,
+        "i":                 (vol / dif) if dif > 0 else 0,
+        "e":                 eff,
         "b":                 h.bugs       if h else 0,
         "t":                 h.time       if h else 0,
         "lOCode":            raw.lloc,
         "lOComment":         raw.comments,
         "lOBlank":           raw.blank,
         "locCodeAndComment": raw.multi,
-        "uniq_Op":           h.distinct_operators if h else 0,
-        "uniq_Opnd":         h.distinct_operands  if h else 0,
-        "total_Op":          h.total_operators    if h else 0,
-        "total_Opnd":        h.total_operands     if h else 0,
+        "uniq_Op":           h.h1         if h else 0,
+        "uniq_Opnd":         h.h2         if h else 0,
+        "total_Op":          h.N1         if h else 0,
+        "total_Opnd":        h.N2         if h else 0,
         "branchCount":       max(0, v_g * 2 - 1),
         "_rank":             rank,
         "_cc":               v_g
@@ -292,8 +299,6 @@ def predict_batch(modules: list[CodeMetrics]):
         "results":         results
     }
 
-
-
 @app.post("/predict/python", tags=["Prediction"])
 async def predict_python_file(file: UploadFile = File(...)):
     """
@@ -304,41 +309,52 @@ async def predict_python_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=400,
             detail="Only .py files are supported.")
 
-    source_code = (await file.read()).decode('utf-8', errors='replace')
+    raw_bytes   = await file.read()
+    source_code = raw_bytes.decode('utf-8', errors='replace')
+    source_code = source_code.replace('\r\n', '\n').replace('\r', '\n')
 
     if len(source_code.strip()) == 0:
         raise HTTPException(status_code=400, detail="File is empty.")
 
+    import tempfile, os
+    with tempfile.NamedTemporaryFile(
+        mode='w', suffix='.py', delete=False, encoding='utf-8'
+    ) as tmp:
+        tmp.write(source_code)
+        tmp_path = tmp.name
+
     try:
-        blocks = cc_visit(source_code)
+        with open(tmp_path, 'r', encoding='utf-8') as f:
+            disk_code = f.read()
+        blocks = cc_visit(disk_code)
     except Exception as ex:
         raise HTTPException(status_code=422,
             detail=f"Could not parse Python file: {str(ex)}")
+    finally:
+        os.unlink(tmp_path)
 
     if not blocks:
         raise HTTPException(status_code=422,
-            detail="No functions found in file. Add at least one function.")
+            detail="No functions found in file.")
 
     results = []
+    errors  = []
     for block in blocks:
         try:
             metrics = extract_radon_metrics(source_code, block.name)
             rank    = metrics.pop('_rank')
             cc_val  = metrics.pop('_cc')
-
             input_values = np.array([[metrics[f] for f in features]])
             input_scaled = scaler.transform(input_values)
             risk_score   = float(model.predict_proba(input_scaled)[0][1])
             verdict, confidence = get_verdict(risk_score)
             top_factors  = get_top_factors(input_values)
-
             if verdict == "High Risk":
                 rec = f"Refactor {block.name} immediately — complexity={cc_val} (rank {rank})."
             elif verdict == "Medium Risk":
                 rec = f"Review {block.name} next sprint. Consider splitting into smaller functions."
             else:
                 rec = f"{block.name} looks clean. Standard review applies."
-
             results.append({
                 "function_name":    block.name,
                 "line_number":      getattr(block, 'lineno', 1),
@@ -349,8 +365,8 @@ async def predict_python_file(file: UploadFile = File(...)):
                 "top_risk_factors": top_factors,
                 "recommendation":   rec
             })
-        except Exception:
-            continue
+        except Exception as ex:
+            errors.append(f"{block.name}: {str(ex)}")
 
     results.sort(key=lambda r: r["risk_score"], reverse=True)
 
@@ -360,5 +376,5 @@ async def predict_python_file(file: UploadFile = File(...)):
         "high_risk":       sum(1 for r in results if r["verdict"] == "High Risk"),
         "medium_risk":     sum(1 for r in results if r["verdict"] == "Medium Risk"),
         "low_risk":        sum(1 for r in results if r["verdict"] == "Low Risk"),
-        "functions":       results
-    }
+        "functions":       results,
+            }
