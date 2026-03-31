@@ -20,55 +20,8 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-
-# ── Custom CSS ───────────────────────────────────────────────
-st.markdown("""
-<style>
-    .main { padding: 1.5rem 2rem; }
-    .stMetric { border-radius: 10px; padding: 1rem; }
-    .risk-high { color: #A32D2D; font-weight: 600; }
-    .risk-med  { color: #854F0B; font-weight: 600; }
-    .risk-low  { color: #3B6D11; font-weight: 600; }
-    .header-badge {
-        background: #EAF3DE; color: #3B6D11;
-        padding: 4px 12px; border-radius: 20px;
-        font-size: 12px; font-weight: 500;
-    }
-    div[data-testid="stMetricValue"] { font-size: 2rem !important; }
-</style>
-""", unsafe_allow_html=True)
-
-
-# ── Header ───────────────────────────────────────────────────
-col_logo, col_status = st.columns([6, 1])
-with col_logo:
-    st.markdown("# 🔮 BugOracle by Dav")
-    st.markdown("*ML-powered software defect prediction — NASA KC1 model*")
-with col_status:
-    try:
-        r = requests.get(f"{API_URL}/", timeout=5)
-        if r.status_code == 200:
-            st.success("API Live")
-        else:
-            st.error("API Error")
-    except:
-        st.error("API Offline")
-    if st.button("🔄 Refresh"):
-        st.cache_data.clear()
-        st.rerun()
-
-st.divider()
-
-
-# ── Sample CSV download ───────────────────────────────────────
-# Lets users download a template with the right column names
-COLUMNS = [
-    "module_name", "loc", "v(g)", "ev(g)", "iv(g)", "n", "v", "l",
-    "d", "i", "e", "b", "t", "lOCode", "lOComment", "lOBlank",
-    "lOCodeAndComment", "uniq_Op", "uniq_Opnd", "total_Op",
-    "total_Opnd", "branchCount"
-]
-
+# ── Upload section ────────────────────────────────────────────
+st.markdown("### Scan your codebase")
 SAMPLE_DATA = pd.DataFrame([
     {
         "module_name": "storage_handler.cpp",
@@ -98,42 +51,130 @@ SAMPLE_DATA = pd.DataFrame([
         "total_Opnd": 60, "branchCount": 8
     }
 ])
+tab_py, tab_csv = st.tabs(["🐍 Python file", "📊 CSV metrics"])
 
+# ── Tab 1: Python file upload ─────────────────────────────────
+with tab_py:
+    st.caption("Upload any .py file — BugOracle extracts complexity metrics automatically")
+    py_file = st.file_uploader("Choose a Python file", type=["py"], key="py_upload")
 
-# ── Upload section ────────────────────────────────────────────
-st.markdown("### Scan your codebase")
+    if py_file is not None:
+        with st.spinner(f"Scanning {py_file.name}..."):
+            try:
+                response = requests.post(
+                    f"{API_URL}/predict/python",
+                    files={"file": (py_file.name, py_file.getvalue(), "text/plain")},
+                    timeout=60
+                )
+                if response.status_code == 200:
+                    res = response.json()
+                    st.success(f"✅ Scanned {res['total_functions']} functions in {py_file.name}")
 
-dl_col, up_col = st.columns([1, 2])
+                    c1, c2, c3, c4 = st.columns(4)
+                    c1.metric("Functions", res['total_functions'])
+                    c2.metric("High Risk 🔴", res['high_risk'])
+                    c3.metric("Medium Risk 🟡", res['medium_risk'])
+                    c4.metric("Low Risk 🟢", res['low_risk'])
 
-with dl_col:
-    csv_template = SAMPLE_DATA.to_csv(index=False)
-    st.download_button(
-        label="📥 Download CSV template",
-        data=csv_template,
-        file_name="bugradar_template.csv",
-        mime="text/csv",
-        help="Download a sample CSV with the correct column format"
-    )
+                    st.markdown("#### Risk ranking — highest risk first")
+                    fn_rows = pd.DataFrame([{
+                        "Function":    f['function_name'],
+                        "Line":        f['line_number'],
+                        "Risk Score":  f"{f['risk_score']:.3f}",
+                        "v(g)":        f['complexity'],
+                        "Rank":        f['rank'],
+                        "Verdict":     f['verdict'],
+                        "Recommendation": f['recommendation']
+                    } for f in res['functions']])
 
-with up_col:
-    uploaded = st.file_uploader(
-        "Upload CSV of code metrics",
-        type=["csv"],
-        help="Must contain the 21 code complexity columns"
-    )
+                    def colour_py_verdict(val):
+                        if val == "High Risk":   return "color: #A32D2D; font-weight: 600"
+                        if val == "Medium Risk": return "color: #854F0B; font-weight: 600"
+                        if val == "Low Risk":    return "color: #3B6D11; font-weight: 600"
+                        return ""
 
-# Use sample data if nothing uploaded
-if uploaded is not None:
-    try:
-        df = pd.read_csv(uploaded)
-        st.success(f"Loaded {len(df)} modules from your file")
-    except Exception as ex:
-        st.error(f"Could not read CSV: {ex}")
+                    st.dataframe(
+                        fn_rows.style.applymap(colour_py_verdict, subset=["Verdict"]),
+                        use_container_width=True, hide_index=True
+                    )
+
+                    if len(res['functions']) > 0:
+                        st.markdown("#### Risk score by function")
+                        chart_data = pd.DataFrame([{
+                            "function": f['function_name'],
+                            "risk":     f['risk_score'],
+                            "color":    "#E24B4A" if f['risk_score'] >= 0.6
+                                        else ("#EF9F27" if f['risk_score'] >= 0.3 else "#639922")
+                        } for f in res['functions']])
+
+                        fig = go.Figure(go.Bar(
+                            x=chart_data["risk"],
+                            y=chart_data["function"],
+                            orientation="h",
+                            marker_color=chart_data["color"],
+                            text=chart_data["risk"].apply(lambda x: f"{x:.3f}"),
+                            textposition="outside"
+                        ))
+                        fig.update_layout(
+                            height=max(200, len(chart_data) * 55),
+                            margin=dict(l=0, r=40, t=10, b=10),
+                            xaxis=dict(range=[0, 1.1], title="Risk Score"),
+                            yaxis=dict(title=""),
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            font=dict(size=12)
+                        )
+                        fig.update_xaxes(showgrid=True, gridcolor="rgba(0,0,0,0.06)")
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    st.download_button(
+                        "📤 Download results as CSV",
+                        pd.DataFrame([{
+                            "function":   f['function_name'],
+                            "line":       f['line_number'],
+                            "risk_score": f['risk_score'],
+                            "verdict":    f['verdict'],
+                            "complexity": f['complexity'],
+                            "rank":       f['rank']
+                        } for f in res['functions']]).to_csv(index=False),
+                        file_name=f"bugoracle_{py_file.name}_results.csv",
+                        mime="text/csv"
+                    )
+                else:
+                    st.error(f"API error: {response.json().get('detail', 'Unknown error')}")
+            except Exception as ex:
+                st.error(f"Connection failed: {ex}. Wake the API at bugradar.onrender.com/docs first.")
+
+# ── Tab 2: CSV upload ─────────────────────────────────────────
+with tab_csv:
+    dl_col, up_col = st.columns([1, 2])
+
+    with dl_col:
+        csv_template = SAMPLE_DATA.to_csv(index=False)
+        st.download_button(
+            label="📥 Download CSV template",
+            data=csv_template,
+            file_name="bugoracle_template.csv",
+            mime="text/csv"
+        )
+
+    with up_col:
+        uploaded = st.file_uploader(
+            "Upload CSV of code metrics",
+            type=["csv"],
+            help="Must contain the 21 code complexity columns"
+        )
+
+    if uploaded is not None:
+        try:
+            df = pd.read_csv(uploaded)
+            st.success(f"Loaded {len(df)} modules from your file")
+        except Exception as ex:
+            st.error(f"Could not read CSV: {ex}")
+            df = SAMPLE_DATA.copy()
+    else:
+        st.info("No file uploaded — showing sample data.")
         df = SAMPLE_DATA.copy()
-else:
-    st.info("No file uploaded — showing sample data. Download the template above to try with your own codebase.")
-    df = SAMPLE_DATA.copy()
-
 
 # ── Run predictions ───────────────────────────────────────────
 @st.cache_data(show_spinner=False)
