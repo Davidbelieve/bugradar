@@ -7,14 +7,15 @@
 [![Model](https://img.shields.io/badge/Model-RF%20%2B%20SMOTE%20%2B%20KC1%2BPC1-orange)](https://github.com/Davidbelieve/bugradar)
 [![AUC-ROC](https://img.shields.io/badge/AUC--ROC-0.8531-success)](https://github.com/Davidbelieve/bugradar)
 [![PC1 AUC](https://img.shields.io/badge/Cross--dataset%20AUC-0.9805-brightgreen)](https://github.com/Davidbelieve/bugradar)
+[![Radon](https://img.shields.io/badge/v4-Radon%20Integration-purple)](https://github.com/Davidbelieve/bugradar)
 
 ---
 
 ## What is BugOracle?
 
-BugOracle predicts the **probability that a software module contains defects** using static code complexity metrics. Send 21 code complexity measurements — lines of code, cyclomatic complexity, Halstead metrics — and get back an instant risk score, verdict, and actionable recommendation.
+BugOracle predicts the **probability that a software module contains defects** using static code complexity metrics. Send 21 code complexity measurements — or simply **upload a `.py` file directly** and BugOracle extracts the metrics automatically using Radon. Get back an instant risk score, verdict, and actionable recommendation per function.
 
-Built on NASA's KC1 dataset of 2,109 real C++ software modules, BugOracle demonstrates that machine learning can identify defect-prone code before manual review even begins.
+Built on NASA's KC1 + PC1 datasets (3,218 real software modules), BugOracle demonstrates that machine learning can identify defect-prone code before manual review even begins.
 
 ---
 
@@ -31,13 +32,15 @@ Built on NASA's KC1 dataset of 2,109 real C++ software modules, BugOracle demons
 ## How It Works
 
 ```
-Your codebase metrics (CSV)
+Your Python file (.py)         OR        CSV of code metrics
+        ↓                                        ↓
+Radon extracts metrics                  Manual metric input
+        ↓                                        ↓
+BugOracle API (FastAPI + Random Forest + threshold=0.40)
         ↓
-BugOracle API (FastAPI + Random Forest)
+Risk Score (0.0 – 1.0) + Verdict + Top Risk Factors + Recommendation
         ↓
-Risk Score (0.0 – 1.0) + Verdict + Top Risk Factors
-        ↓
-Prioritised review queue
+Prioritised review queue — per function, ranked highest risk first
 ```
 
 Every module gets a **risk score**, a **verdict** (Low / Medium / High Risk), the **top 3 contributing metrics**, and a **recommendation** — all in one API call.
@@ -102,6 +105,34 @@ Both datasets originate from NASA's Metrics Data Program via the PROMISE Softwar
 
 ## API Usage
 
+### Upload a Python file (v4 — no CSV needed)
+```bash
+curl -X POST https://bugradar.onrender.com/predict/python \
+  -F 'file=@your_script.py'
+```
+
+### Example response (Python file)
+```json
+{
+  "filename": "auth.py",
+  "total_functions": 4,
+  "high_risk": 1,
+  "medium_risk": 2,
+  "low_risk": 1,
+  "functions": [
+    {
+      "function_name": "authenticate_user",
+      "line_number": 12,
+      "risk_score": 0.72,
+      "verdict": "High Risk",
+      "complexity": 14,
+      "rank": "C",
+      "recommendation": "Refactor authenticate_user immediately — complexity=14 (rank C)."
+    }
+  ]
+}
+```
+
 ### Health check
 ```bash
 curl https://bugradar.onrender.com/
@@ -152,6 +183,7 @@ curl -X POST https://bugradar.onrender.com/predict/batch \
 | Layer | Technology |
 |---|---|
 | ML model | scikit-learn Random Forest + imbalanced-learn SMOTE |
+| Code analysis | Radon (McCabe + Halstead metrics from .py files) |
 | Training data | NASA KC1 + PC1 (3,218 modules combined) |
 | Threshold | 0.40 (tuned to maximise F1) |
 | API | FastAPI + Uvicorn |
@@ -192,14 +224,15 @@ streamlit run dashboard.py
 
 ```
 bugradar/
-├── main.py              ← FastAPI REST API
-├── dashboard.py         ← Streamlit dashboard
+├── main.py              ← FastAPI REST API + Radon endpoint
+├── dashboard.py         ← Streamlit dashboard (Python + CSV tabs)
 ├── requirements.txt     ← Python dependencies
 ├── Procfile             ← Render deployment config
 ├── bugradar_model/
-│   ├── model.pkl        ← Trained RF + SMOTE model
-│   ├── scaler.pkl       ← StandardScaler (fitted on training data)
-│   └── features.pkl     ← Ordered feature names from KC1
+│   ├── model.pkl        ← Trained RF + SMOTE model (KC1 + PC1)
+│   ├── scaler.pkl       ← StandardScaler
+│   ├── features.pkl     ← Ordered feature names
+│   └── threshold.pkl    ← Optimised threshold (0.40)
 └── .gitignore
 ```
 
@@ -210,17 +243,18 @@ bugradar/
 - [x] v1 — Random Forest baseline (AUC-ROC: 0.8257, Recall: 0.35)
 - [x] v2 — RF + SMOTE (AUC-ROC: 0.8378, Recall: 0.58)
 - [x] v3 — RF + SMOTE + threshold tuning + KC1+PC1 combined (AUC-ROC: 0.8531, Recall: 0.72, PC1 cross-dataset: 0.9805)
-- [ ] v4 — Auto code analysis via Radon/Lizard (no manual CSV needed)
+- [x] v4 — Radon integration — upload `.py` files directly, per-function risk scores
 - [ ] GitHub Action — run BugOracle on every pull request automatically
 - [ ] VS Code extension — flag high-risk functions inline while coding
+- [ ] Multi-language support — Java, C++, JavaScript via Lizard
 
 ---
 
 ## Author
 
-**David** — MSc. Advanced Computer Science student, Northumbria University
+**David** — MSc Advanced Computer Science student, Northumbria University
 
-Built as part of a Learning module and extended into a real deployable product.
+Built as part of KV7006 Machine Learning module and extended into a real deployable product.
 
 ---
 
