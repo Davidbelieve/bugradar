@@ -378,3 +378,8 @@ async def predict_python_file(file: UploadFile = File(...)):
         "low_risk":        sum(1 for r in results if r["verdict"] == "Low Risk"),
         "functions":       results,
             }
+
+# test trigger for BugOracle
+def unused_function():
+    x = 1
+    y = x + 1
