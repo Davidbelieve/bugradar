@@ -61,35 +61,18 @@ def main():
         print(f"Posted comment: {resp.status_code}")
     else:
         print("No GitHub token/PR info — printing report only.")
-        
-        # POST scan results to BugRadar API
+
     from datetime import datetime
     scan_payload = {
         "repo": repo or "unknown",
-        "pr_number": int(pr_number) if pr_number else 0,
-        "files_scanned": len(py_files),
-        "high_risk": len(high_risk),
-        "medium_risk": len(medium_risk),
-        "low_risk": len(low_risk),
-        "timestamp": datetime.utcnow().isoformat()
+       
     }
     try:
-        api_resp = requests.post(
-            "https://bugradar.onrender.com/scan-report",
-            json=scan_payload,
-            timeout=10
-        )
+        api_resp = requests.post(...)
         print(f"Scan report sent: {api_resp.status_code}")
     except Exception as e:
         print(f"Could not send scan report: {e}")
 
     if high_risk:
-        print(f"\nFAIL: {len(high_risk)} high risk function(s) found — fix before merging")
+        print(f"\nFAIL: ...")
         sys.exit(1)
-
-if __name__ == "__main__":
-    main()
-
-# v2 - logs to API
-
-# v2 - logs to API
