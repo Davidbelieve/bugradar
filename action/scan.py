@@ -80,5 +80,9 @@ def main():
     else:
         print("No GitHub token/PR info — printing report only.")
 
+        if high_risk:    
+            print(f"\n❌ {len(high_risk)} high risk function(s) found — failing check")    
+            sys.exit(1)    
+
 if __name__ == "__main__":
-    main()
+    main()    
