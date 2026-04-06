@@ -84,7 +84,7 @@ def main():
         "low_risk": len(low_risk),
         "timestamp": datetime.utcnow().isoformat()
     }
-
+    print("Attempting API call...")
     try:
         r2 = requests.post("https://bugradar.onrender.com/scan-report", json=payload, timeout=10)
         print("Scan report sent: " + str(r2.status_code))
@@ -94,7 +94,6 @@ def main():
     if high_risk:
         print("FAIL: " + str(len(high_risk)) + " high risk functions found")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
