@@ -101,7 +101,7 @@ class PredictionResult(BaseModel):
     top_risk_factors: list
     recommendation:   str
 
-    class ScanReport(BaseModel):
+class ScanReport(BaseModel):
     repo:          str
     pr_number:     int
     files_scanned: int
@@ -403,3 +403,4 @@ def get_scan_history():
 def unused_function():
     x = 1
     y = x + 1
+
