@@ -101,6 +101,15 @@ class PredictionResult(BaseModel):
     top_risk_factors: list
     recommendation:   str
 
+    class ScanReport(BaseModel):
+    repo:          str
+    pr_number:     int
+    files_scanned: int
+    high_risk:     int
+    medium_risk:   int
+    low_risk:      int
+    timestamp:     str
+
 
 class PythonFileResult(BaseModel):
     filename:         str
@@ -378,6 +387,17 @@ async def predict_python_file(file: UploadFile = File(...)):
         "low_risk":        sum(1 for r in results if r["verdict"] == "Low Risk"),
         "functions":       results,
             }
+
+scan_history = []
+
+@app.post("/scan-report")
+def receive_scan_report(report: ScanReport):
+    scan_history.append(report.dict())
+    return {"status": "saved", "total_scans": len(scan_history)}
+
+@app.get("/scan-history")
+def get_scan_history():
+    return {"scans": scan_history}
 
 # test trigger for BugOracle
 def unused_function():
