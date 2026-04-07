@@ -94,7 +94,7 @@ with tab_py:
                         return ""
 
                     st.dataframe(
-                        fn_rows.style.applymap(colour_py_verdict, subset=["Verdict"]),
+                        fn_rows.style.map(colour_py_verdict, subset=["Verdict"]),
                         use_container_width=True, hide_index=True
                     )
 
@@ -296,8 +296,8 @@ display_df["Risk Score"] = display_df["Risk Score"].apply(
 )
 
 styled = display_df.style\
-    .applymap(colour_verdict, subset=["Verdict"])\
-    .applymap(colour_score,   subset=["Risk Score"])\
+    .map(colour_verdict, subset=["Verdict"])\
+    .map(colour_score,   subset=["Risk Score"])\
     .set_properties(**{"font-size": "13px"})
 
 st.dataframe(styled, use_container_width=True, hide_index=True)
