@@ -302,7 +302,6 @@ styled = display_df.style\
 
 st.dataframe(styled, use_container_width=True, hide_index=True)
 
-
 # ── Charts ────────────────────────────────────────────────────
 chart_col, rec_col = st.columns([1, 1])
 
