@@ -387,17 +387,35 @@ async def predict_python_file(file: UploadFile = File(...)):
         "low_risk":        sum(1 for r in results if r["verdict"] == "Low Risk"),
         "functions":       results,
             }
+import os as _os
+from sqlalchemy import create_engine as _ce, text as _text
 
-scan_history = []
+_DB_URL = _os.environ.get("DATABASE_URL", "")
+if _DB_URL:
+    _engine = _ce(_DB_URL)
+    with _engine.connect() as _c:
+        _c.execute(_text("CREATE TABLE IF NOT EXISTS scan_reports (id SERIAL PRIMARY KEY, repo TEXT, pr_number INTEGER, files_scanned INTEGER, high_risk INTEGER, medium_risk INTEGER, low_risk INTEGER, timestamp TEXT)"))
+        _c.commit()
+else:
+    _engine = None
 
 @app.post("/scan-report")
 def receive_scan_report(report: ScanReport):
-    scan_history.append(report.dict())
-    return {"status": "saved", "total_scans": len(scan_history)}
+    if _engine:
+        with _engine.connect() as conn:
+            d = report.dict()
+            conn.execute(_text("INSERT INTO scan_reports (repo, pr_number, files_scanned, high_risk, medium_risk, low_risk, timestamp) VALUES (:repo, :pr_number, :files_scanned, :high_risk, :medium_risk, :low_risk, :timestamp)"), d)
+            conn.commit()
+        return {"status": "saved"}
+    return {"status": "no database"}
 
 @app.get("/scan-history")
 def get_scan_history():
-    return {"scans": scan_history}
+    if _engine:
+        with _engine.connect() as conn:
+            rows = conn.execute(_text("SELECT repo, pr_number, files_scanned, high_risk, medium_risk, low_risk, timestamp FROM scan_reports ORDER BY id DESC LIMIT 100")).fetchall()
+        return {"scans": [dict(r._mapping) for r in rows]}
+    return {"scans": []}
 
 # test trigger for BugOracle
 def unused_function():
