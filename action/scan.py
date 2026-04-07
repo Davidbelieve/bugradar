@@ -86,7 +86,7 @@ def main():
     }
     print("Attempting API call...")
     try:
-        r2 = requests.post("https://bugradar.onrender.com/scan-report", json=payload, timeout=10)
+        r2 = requests.post("https://bugradar.onrender.com/scan-report", json=payload, timeout=30)
         print("Scan report sent: " + str(r2.status_code))
     except Exception as ex:
         print("Could not send report: " + str(ex))
