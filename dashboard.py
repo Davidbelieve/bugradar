@@ -362,7 +362,38 @@ st.download_button(
     file_name="bugradar_results.csv",
     mime="text/csv"
 )
+# — Scan History ————————————————————————————
+st.markdown("---")
+st.markdown("### 📋 BugOracle Scan History")
 
+try:
+    history_resp = requests.get(API_URL + "/scan-history", timeout=15)
+    if history_resp.status_code == 200:
+        scans = history_resp.json().get("scans", [])
+        if scans:
+            history_df = pd.DataFrame(scans)
+            history_df["timestamp"] = pd.to_datetime(history_df["timestamp"])
+            history_df = history_df.sort_values("timestamp", ascending=False)
+            history_df["timestamp"] = history_df["timestamp"].dt.strftime("%Y-%m-%d %H:%M")
+
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Total Scans", len(history_df))
+            col2.metric("Avg High Risk", round(history_df["high_risk"].mean(), 1))
+            col3.metric("Avg Medium Risk", round(history_df["medium_risk"].mean(), 1))
+            col4.metric("Total Files Scanned", history_df["files_scanned"].sum())
+
+            st.dataframe(
+                history_df[["timestamp", "repo", "pr_number", "files_scanned", "high_risk", "medium_risk", "low_risk"]],
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No scans logged yet. Open a PR to trigger BugOracle.")
+    else:
+        st.warning("Could not load scan history.")
+except Exception as ex:
+    st.warning("Scan history unavailable: " + str(ex))
+    
 # ── Footer ────────────────────────────────────────────────────
 st.divider()
 st.caption("BugOracle by Dav · v1.0 — ML model trained on NASA KC1 dataset · AUC-ROC: 0.8257 · Random Forest")
