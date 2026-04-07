@@ -9,4 +9,5 @@ streamlit>=1.35.0
 plotly>=5.22.0
 requests>=2.31.0
 pandas>=2.0.0
-radon>=6.0.1
+radon>=6.0.1psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.0
