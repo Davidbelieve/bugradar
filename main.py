@@ -420,11 +420,12 @@ def get_scan_history():
 # ─────────────────────────────────────────────
 # TEMPORARY — delete this after running once
 # Visit: https://bugradar.onrender.com/run-migration
-# ─────────────────────────────────────────────
-@app.get("/run-migration")
+# ─────────────────────────────────────────────@app.get("/run-migration")
 def run_migration():
+    if not _engine:
+        return {"status": "error", "detail": "No database connection"}
+    
     migration_sql = """
--- USERS
 CREATE TABLE IF NOT EXISTS users (
     id            SERIAL PRIMARY KEY,
     github_id     BIGINT UNIQUE NOT NULL,
@@ -435,7 +436,6 @@ CREATE TABLE IF NOT EXISTS users (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- REPOS
 CREATE TABLE IF NOT EXISTS repos (
     id            SERIAL PRIMARY KEY,
     user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -448,50 +448,38 @@ CREATE TABLE IF NOT EXISTS repos (
 CREATE INDEX IF NOT EXISTS idx_repos_user_id ON repos(user_id);
 CREATE INDEX IF NOT EXISTS idx_repos_api_key ON repos(api_key);
 
--- ALTER scan_history
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'scan_history' AND column_name = 'user_id'
+        WHERE table_name = 'scan_reports' AND column_name = 'user_id'
     ) THEN
-        ALTER TABLE scan_history ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+        ALTER TABLE scan_reports ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
     END IF;
-
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'scan_history' AND column_name = 'repo_id'
+        WHERE table_name = 'scan_reports' AND column_name = 'repo_id'
     ) THEN
-        ALTER TABLE scan_history ADD COLUMN repo_id INTEGER REFERENCES repos(id) ON DELETE SET NULL;
+        ALTER TABLE scan_reports ADD COLUMN repo_id INTEGER REFERENCES repos(id) ON DELETE SET NULL;
     END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_scan_history_user_id ON scan_history(user_id);
-CREATE INDEX IF NOT EXISTS idx_scan_history_repo_id ON scan_history(repo_id);
-
--- TIER LIMITS
 CREATE TABLE IF NOT EXISTS tier_limits (
     tier              VARCHAR(20) PRIMARY KEY,
     max_repos         INTEGER NOT NULL,
     max_scans_monthly INTEGER NOT NULL
 );
 
-INSERT INTO tier_limits VALUES ('free', 3, 100)
-    ON CONFLICT (tier) DO NOTHING;
-INSERT INTO tier_limits VALUES ('pro', 999999, 999999)
-    ON CONFLICT (tier) DO NOTHING;
+INSERT INTO tier_limits VALUES ('free', 3, 100) ON CONFLICT (tier) DO NOTHING;
+INSERT INTO tier_limits VALUES ('pro', 999999, 999999) ON CONFLICT (tier) DO NOTHING;
 """
-    conn = get_db_connection()
     try:
-        with conn.cursor() as cur:
-            cur.execute(migration_sql)
-        conn.commit()
-        return {"status": "migration complete", "tables": ["users", "repos", "tier_limits", "scan_history (altered)"]}
+        with _engine.connect() as _c:
+            _c.execute(_text(migration_sql))
+            _c.commit()
+        return {"status": "migration complete", "tables": ["users", "repos", "tier_limits", "scan_reports (altered)"]}
     except Exception as e:
-        conn.rollback()
         return {"status": "error", "detail": str(e)}
-    finally:
-        conn.close()
 # test trigger for BugOracle
 def unused_function():
     x = 1
