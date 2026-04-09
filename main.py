@@ -47,8 +47,9 @@ app = FastAPI(
     redoc_url="/redoc"     # Alternative docs at /redoc
 )
 
-# Allow all origins for now â€” tighten this when deploying to productionapp.add_middleware
-(
+# Allow all origins for now â€” tighten this when deploying to production
+
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
