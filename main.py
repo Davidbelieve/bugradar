@@ -47,16 +47,17 @@ app = FastAPI(
     redoc_url="/redoc"     # Alternative docs at /redoc
 )
 
-# Allow all origins for now â€” tighten this when deploying to production
-app.add_middleware(
+# Allow all origins for now â€” tighten this when deploying to productionapp.add_middleware
+(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
-    app.include_router(auth_router, prefix="/auth", tags=["auth"])
+)
+
+app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(repos_router, prefix="/repos", tags=["repos"])
 app.include_router(history_router, tags=["history"])
-)
 
 # â”€â”€ Input schema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Pydantic validates every incoming field automatically.
