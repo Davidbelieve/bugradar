@@ -417,9 +417,10 @@ def get_scan_history():
         return {"scans": [dict(r._mapping) for r in rows]}
     return {"scans": []}
 
-# ─────────────────────────────────────────────
+
 # TEMPORARY — delete this after running once
 # Visit: https://bugradar.onrender.com/run-migration
+
 @app.get("/run-migration")
 def run_migration():
     if not _engine:
