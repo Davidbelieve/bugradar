@@ -14,6 +14,9 @@ from typing import Optional
 import joblib
 import numpy as np
 import os
+from auth import router as auth_router
+from repos import router as repos_router
+from history import router as history_router
 
 # â”€â”€ Load model artefacts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # All three files must sit in the same folder as main.py
@@ -50,6 +53,9 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(repos_router, prefix="/repos", tags=["repos"])
+app.include_router(history_router, tags=["history"])
 )
 
 # â”€â”€ Input schema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
