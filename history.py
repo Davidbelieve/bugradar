@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user
 from sqlalchemy import text as _text
 from database import _engine

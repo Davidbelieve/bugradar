@@ -1,4 +1,4 @@
-﻿import secrets
+import secrets
 from fastapi import APIRouter, HTTPException, Depends, status, Query
 from pydantic import BaseModel
 from auth import get_current_user

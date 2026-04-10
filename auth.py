@@ -1,4 +1,4 @@
-﻿import os, secrets, httpx
+import os, secrets, httpx
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import RedirectResponse
