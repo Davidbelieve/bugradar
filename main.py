@@ -17,6 +17,7 @@ import os
 from auth import router as auth_router
 from repos import router as repos_router
 from history import router as history_router
+from database import _engine, _text
 
 # â”€â”€ Load model artefacts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # All three files must sit in the same folder as main.py
@@ -395,17 +396,7 @@ async def predict_python_file(file: UploadFile = File(...)):
         "low_risk":        sum(1 for r in results if r["verdict"] == "Low Risk"),
         "functions":       results,
             }
-import os as _os
-from sqlalchemy import create_engine as _ce, text as _text
-
-_DB_URL = _os.environ.get("DATABASE_URL", "")
-if _DB_URL:
-    _engine = _ce(_DB_URL)
-    with _engine.connect() as _c:
-        _c.execute(_text("CREATE TABLE IF NOT EXISTS scan_reports (id SERIAL PRIMARY KEY, repo TEXT, pr_number INTEGER, files_scanned INTEGER, high_risk INTEGER, medium_risk INTEGER, low_risk INTEGER, timestamp TEXT)"))
-        _c.commit()
-else:
-    _engine = None
+    
 
 @app.post("/scan-report")
 def receive_scan_report(report: ScanReport):
