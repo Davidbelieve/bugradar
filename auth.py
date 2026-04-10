@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from sqlalchemy import text as _text
-from main import _engine
+from database import _engine
 
 router = APIRouter()
 bearer_scheme = HTTPBearer()

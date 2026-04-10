@@ -1,7 +1,7 @@
 ﻿from fastapi import APIRouter, Depends, HTTPException, Query
 from auth import get_current_user
 from sqlalchemy import text as _text
-from main import _engine
+from database import _engine
 
 router = APIRouter()
 
