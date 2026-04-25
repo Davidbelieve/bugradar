@@ -2,30 +2,67 @@
 
 on:
   pull_request:
-    branches: [main]
     paths:
-      - '**/*.py'
-
-permissions:
-  pull-requests: write
+      - "**.py"
 
 jobs:
-  scan:
+  bugoracle-scan:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          python-version: '3.11'
+          fetch-depth: 0
 
-      - name: Install dependencies
-        run: pip install requests radon
+      - name: Get changed Python files
+        id: changed
+        run: |
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.py$' | tr '\n' ' ')
+          echo "files=$FILES" >> $GITHUB_OUTPUT
 
-      - name: Run BugOracle scan
+      - name: Scan with BugOracle
+        id: scan
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPO: ${{ github.repository }}
-        run: python action/scan.py
+          BUGORACLE_API_KEY: ${{ secrets.BUGORACLE_API_KEY }}
+          BUGORACLE_API_URL: https://bugradar.onrender.com
+        run: |
+          REPORT=""
+          BLOCKED=false
+          for FILE in ${{ steps.changed.outputs.files }}; do
+            if [ ! -f "$FILE" ]; then continue; fi
+            CODE=$(cat "$FILE" | base64 -w 0)
+            RESPONSE=$(curl -s -w "\n%{http_code}" \
+              -X POST "$BUGORACLE_API_URL/scan-report" \
+              -H "Content-Type: application/json" \
+              -H "X-API-Key: $BUGORACLE_API_KEY" \
+              -d "{\"filename\": \"$FILE\", \"code\": \"$CODE\"}")
+            HTTP_STATUS=$(echo "$RESPONSE" | tail -1)
+            RISK=$(echo "$RESPONSE" | head -n -1 | python3 -c "import sys,json; print(json.load(sys.stdin).get('high_risk', 0))")
+            ICON="✅"
+            if [ "$RISK" -ge 1 ]; then ICON="🔴"; BLOCKED=true; fi
+            REPORT="$REPORT\n| $FILE | $ICON $RISK high-risk functions |"
+          done
+          echo "report=$REPORT" >> $GITHUB_OUTPUT
+          echo "blocked=$BLOCKED" >> $GITHUB_OUTPUT
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const report = ${{ steps.scan.outputs.report }};
+            const blocked = ${{ steps.scan.outputs.blocked }} === 'true';
+            const header = blocked
+              ? '## 🔴 BugOracle — high risk detected'
+              : '## ✅ BugOracle — all clear';
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.payload.pull_request.number,
+              body: header + '\n\n| File | Result |\n|------|--------|\n' + report + '\n\n_Powered by [BugOracle](https://bugradar.onrender.com)_'
+            });
+
+      - name: Fail if high-risk
+        if: steps.scan.outputs.blocked == 'true'
+        run: exit 1
