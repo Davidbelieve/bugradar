@@ -201,16 +201,15 @@ def get_top_factors(input_array: np.ndarray) -> list:
 
 # â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-@app.get("/", tags=["Health"])
+@app.get("/", response_class=HTMLResponse, tags=["Health"])
 def root():
-    """Health check â€” confirms the API is running."""
-    return {
-        "status":    "âœ… BugOracle by Dav API is live",
-        "version":   "3.0.0",
-        "model":     "Random Forest â€” KC1 + PC1 combined (AUC-ROC: 0.8531)",
-        "threshold": threshold,
-        "docs":      "/docs"
-    }
+    import os
+    landing_path = os.path.join(os.path.dirname(__file__), "landing.html")
+    try:
+        with open(landing_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return HTMLResponse("<h1>BugOracle</h1>", status_code=200)
 
 
 @app.get("/features", tags=["Info"])
