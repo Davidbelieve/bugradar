@@ -169,7 +169,7 @@ def extract_radon_metrics(source_code: str, func_name: str) -> dict:
         "lOCode":            raw.lloc,
         "lOComment":         raw.comments,
         "lOBlank":           raw.blank,
-        "locCodeAndComment": raw.multi,
+        "lOCodeAndComment": raw.multi,
         "uniq_Op":           h.h1         if h else 0,
         "uniq_Opnd":         h.h2         if h else 0,
         "total_Op":          h.N1         if h else 0,
