@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
+from fastapi.responses import HTMLResponse
 from sqlalchemy import text as _text
 from database import _engine
 

@@ -19,6 +19,7 @@ from auth import router as auth_router
 from repos import router as repos_router
 from history import router as history_router
 from database import _engine, _text
+from stripe_routes import router as stripe_router
 
 # â”€â”€ Load model artefacts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # All three files must sit in the same folder as main.py
@@ -61,6 +62,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/auth", tags=["auth"])
 app.include_router(repos_router, prefix="/repos", tags=["repos"])
 app.include_router(history_router, tags=["history"])
+app.include_router(stripe_router, prefix="/billing", tags=["billing"])
 
 # â”€â”€ Input schema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Pydantic validates every incoming field automatically.

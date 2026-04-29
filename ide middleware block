@@ -1,0 +1,12 @@
+[33mcommit ada40f2731067ac7f86f7d30852f45bd41f42434[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: David <akinollaafeni212@gmail.com>
+Date:   Thu Apr 9 17:20:34 2026 +0000
+
+    feat: add OAuth, repos, history endpoints
+
+ auth.py          | 84 [32m++++++++++++++++++++++++++++++++++++++++++++++++++++++++[m
+ history.py       | 26 [32m++++++++++++++++++[m
+ main.py          |  6 [32m++++[m
+ repos.py         | 61 [32m++++++++++++++++++++++++++++++++++++++++[m
+ requirements.txt |  5 [32m++++[m
+ 5 files changed, 182 insertions(+)
