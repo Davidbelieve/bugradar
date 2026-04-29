@@ -420,17 +420,13 @@ def get_scan_history():
 
 @app.get("/run-stripe-migration")
 def run_stripe_migration():
-    conn = get_db_connection()
     try:
-        with conn.cursor() as cur:
-            cur.execute(open("002_stripe_billing.sql").read())
-        conn.commit()
+        with _engine.connect() as conn:
+            conn.execute(_text(open("002_stripe_billing.sql").read()))
+            conn.commit()
         return {"status": "stripe migration complete"}
     except Exception as e:
-        conn.rollback()
         return {"error": str(e)}
-    finally:
-        conn.close()
 
 # test trigger for BugOracle
 def unused_function():
