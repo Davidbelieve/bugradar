@@ -268,7 +268,7 @@ def predict(metrics: CodeMetrics):
 
         # Arrange values in the exact training order
         input_values = np.array([[feature_map[f] for f in features]])
-######
+
 @app.get("/run-stripe-migration")
 def run_stripe_migration():
     conn = get_db_connection()
