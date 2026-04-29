@@ -1,5 +1,5 @@
 ﻿# ============================================================
-# BugRadar API â€” main.py
+# BugRadar API — main.py
 # ML-powered software defect prediction
 # Run locally: uvicorn main:app --reload
 # ============================================================
@@ -21,7 +21,7 @@ from history import router as history_router
 from database import _engine, _text
 from stripe_routes import router as stripe_router
 
-# â”€â”€ Load model artefacts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Load model artefacts ─────────────────────────────────────
 # All three files must sit in the same folder as main.py
 MODEL_PATH     = "bugradar_model/model.pkl"
 SCALER_PATH    = "bugradar_model/scaler.pkl"
@@ -30,17 +30,17 @@ THRESHOLD_PATH = "bugradar_model/threshold.pkl"
 
 for path in [MODEL_PATH, SCALER_PATH, FEATURES_PATH, THRESHOLD_PATH]:
     if not os.path.exists(path):
-        raise FileNotFoundError(f"âŒ Missing file: {path}")
+        raise FileNotFoundError(f"❌ Missing file: {path}")
 
 model     = joblib.load(MODEL_PATH)
 scaler    = joblib.load(SCALER_PATH)
 features  = joblib.load(FEATURES_PATH)
 threshold = joblib.load(THRESHOLD_PATH)
 
-print(f"âœ… Model loaded â€” {len(features)} features expected")
-print(f"âœ… Threshold loaded â€” {threshold:.2f} (v3 optimised)")
+print(f"✅ Model loaded — {len(features)} features expected")
+print(f"✅ Threshold loaded — {threshold:.2f} (v3 optimised)")
 
-# â”€â”€ FastAPI app setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── FastAPI app setup ────────────────────────────────────────
 app = FastAPI(
     title="BugRadar API",
     description="ML-powered software defect prediction using NASA KC1 model. "
@@ -50,7 +50,7 @@ app = FastAPI(
     redoc_url="/redoc"     # Alternative docs at /redoc
 )
 
-# Allow all origins for now â€” tighten this when deploying to production
+# Allow all origins for now — tighten this when deploying to production
 
 app.add_middleware(
     CORSMiddleware,
@@ -64,7 +64,7 @@ app.include_router(repos_router, prefix="/repos", tags=["repos"])
 app.include_router(history_router, tags=["history"])
 app.include_router(stripe_router, prefix="/billing", tags=["billing"])
 
-# â”€â”€ Input schema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Input schema ─────────────────────────────────────────────
 # Pydantic validates every incoming field automatically.
 # All 21 features match the NASA KC1 column names exactly.
 class CodeMetrics(BaseModel):
@@ -94,10 +94,10 @@ class CodeMetrics(BaseModel):
     module_name:      Optional[str] = Field(None, description="Optional module name")
 
 
-# â”€â”€ Output schema â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Output schema ────────────────────────────────────────────
 class PredictionResult(BaseModel):
     module_name:   str
-    risk_score:    float   # probability of defect: 0.0 â†’ 1.0
+    risk_score:    float   # probability of defect: 0.0 → 1.0
     verdict:       str     # "Low Risk" / "Medium Risk" / "High Risk"
     confidence:    str     # human-readable confidence level
     top_risk_factors: list # top 3 features driving the prediction
@@ -131,16 +131,16 @@ class PythonFileResult(BaseModel):
     low_risk:         int
     functions:        list
 
-# â”€â”€ Helper: risk label from probability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Helper: risk label from probability ──────────────────────
 def get_verdict(prob: float) -> tuple[str, str]:
     if prob < 0.30:
         return "Low Risk",    "The model is confident this module is likely clean."
     elif prob < 0.60:
-        return "Medium Risk", "This module shows some defect indicators â€” worth a review."
+        return "Medium Risk", "This module shows some defect indicators — worth a review."
     else:
-        return "High Risk",   "Strong defect signals detected â€” prioritise this module for review."
+        return "High Risk",   "Strong defect signals detected — prioritise this module for review."
 
-# â”€â”€ Radon metric extractor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Radon metric extractor ────────────────────────────────────
 def extract_radon_metrics(source_code: str, func_name: str) -> dict:
     raw     = analyze(source_code)
     hal     = h_visit(source_code)
@@ -183,7 +183,7 @@ def extract_radon_metrics(source_code: str, func_name: str) -> dict:
     }
 
 
-# â”€â”€ Helper: top contributing features â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Helper: top contributing features ────────────────────────
 def get_top_factors(input_array: np.ndarray) -> list:
     importances  = model.feature_importances_   # Random Forest built-in
     scaled_input = scaler.transform(input_array)
@@ -202,7 +202,7 @@ def get_top_factors(input_array: np.ndarray) -> list:
     ]
 
 
-# â”€â”€ Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Routes ───────────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse, tags=["Health"])
 def root():
@@ -235,7 +235,7 @@ def predict(metrics: CodeMetrics):
     """
     try:
         # Build feature vector in the same order the model was trained on
-        # Build feature map dynamically â€” avoids any manual naming mismatches
+        # Build feature map dynamically — avoids any manual naming mismatches
         metrics_dict = {
             "loc":              metrics.loc,
             "v(g)":             metrics.v_g,
@@ -260,7 +260,7 @@ def predict(metrics: CodeMetrics):
             "branchCount":      metrics.branchCount,
         }
 
-        # Print feature names for debugging â€” remove after confirming it works
+        # Print feature names for debugging — remove after confirming it works
         print(f"Expected features: {features}")
         print(f"Provided keys:     {list(metrics_dict.keys())}")
 
@@ -314,7 +314,7 @@ def run_stripe_migration():
 def predict_batch(modules: list[CodeMetrics]):
     """
     Predict defect risk for multiple modules at once.
-    Returns results sorted by risk_score descending â€” highest risk first.
+    Returns results sorted by risk_score descending — highest risk first.
     """
     if len(modules) > 100:
         raise HTTPException(status_code=400, detail="Batch limit is 100 modules per request.")
@@ -332,7 +332,7 @@ def predict_batch(modules: list[CodeMetrics]):
 @app.post("/predict/python", tags=["Prediction"])
 async def predict_python_file(file: UploadFile = File(...)):
     """
-    Upload a .py file â€” BugOracle extracts complexity metrics
+    Upload a .py file — BugOracle extracts complexity metrics
     per function using Radon and returns defect risk scores.
     """
     if not file.filename.endswith('.py'):
@@ -380,7 +380,7 @@ async def predict_python_file(file: UploadFile = File(...)):
             verdict, confidence = get_verdict(risk_score)
             top_factors  = get_top_factors(input_values)
             if verdict == "High Risk":
-                rec = f"Refactor {block.name} immediately â€” complexity={cc_val} (rank {rank})."
+                rec = f"Refactor {block.name} immediately — complexity={cc_val} (rank {rank})."
             elif verdict == "Medium Risk":
                 rec = f"Review {block.name} next sprint. Consider splitting into smaller functions."
             else:
