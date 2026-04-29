@@ -35,7 +35,7 @@ FRONTEND_URL   = os.environ.get("FRONTEND_URL", "http://localhost:8501")
 
 @router.post("/subscribe")
 def create_checkout_session(current_user: dict = Depends(get_current_user)):
-    user_id  = current_user["id"]
+    user_id  = int(current_user["sub"])
     email    = current_user.get("email") or ""
     username = current_user.get("username", "user")
 
@@ -128,7 +128,7 @@ def billing_status(current_user: dict = Depends(get_current_user)):
     with _engine.connect() as conn:
         row = conn.execute(
             _text("SELECT tier, stripe_customer_id, stripe_subscription_id FROM users WHERE id = :uid"),
-            {"uid": current_user["id"]}
+            {"uid": int(current_user["sub"])}
         ).fetchone()
 
     if not row:
