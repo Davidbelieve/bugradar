@@ -418,16 +418,6 @@ def get_scan_history():
         return {"scans": [dict(r._mapping) for r in rows]}
     return {"scans": []}
 
-@app.get("/run-stripe-migration")
-def run_stripe_migration():
-    try:
-        with _engine.connect() as conn:
-            conn.execute(_text(open("002_stripe_billing.sql").read()))
-            conn.commit()
-        return {"status": "stripe migration complete"}
-    except Exception as e:
-        return {"error": str(e)}
-
 # test trigger for BugOracle
 def unused_function():
     x = 1
