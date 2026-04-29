@@ -1,5 +1,5 @@
 # ============================================================
-# BugRadar API — main.py
+# BugRadar API  main.py
 # ML-powered software defect prediction
 # Run locally: uvicorn main:app --reload
 # ============================================================
@@ -37,8 +37,8 @@ scaler    = joblib.load(SCALER_PATH)
 features  = joblib.load(FEATURES_PATH)
 threshold = joblib.load(THRESHOLD_PATH)
 
-print(f"? Model loaded — {len(features)} features expected")
-print(f"? Threshold loaded — {threshold:.2f} (v3 optimised)")
+print(f"? Model loaded  {len(features)} features expected")
+print(f"? Threshold loaded  {threshold:.2f} (v3 optimised)")
 
 # -- FastAPI app setup ----------------------------------------
 app = FastAPI(
@@ -50,7 +50,7 @@ app = FastAPI(
     redoc_url="/redoc"     # Alternative docs at /redoc
 )
 
-# Allow all origins for now — tighten this when deploying to production
+# Allow all origins for now  tighten this when deploying to production
 
 app.add_middleware(
     CORSMiddleware,
@@ -136,9 +136,9 @@ def get_verdict(prob: float) -> tuple[str, str]:
     if prob < 0.30:
         return "Low Risk",    "The model is confident this module is likely clean."
     elif prob < 0.60:
-        return "Medium Risk", "This module shows some defect indicators — worth a review."
+        return "Medium Risk", "This module shows some defect indicators  worth a review."
     else:
-        return "High Risk",   "Strong defect signals detected — prioritise this module for review."
+        return "High Risk",   "Strong defect signals detected  prioritise this module for review."
 
 # -- Radon metric extractor ------------------------------------
 def extract_radon_metrics(source_code: str, func_name: str) -> dict:
@@ -235,7 +235,7 @@ def predict(metrics: CodeMetrics):
     """
     try:
         # Build feature vector in the same order the model was trained on
-        # Build feature map dynamically — avoids any manual naming mismatches
+        # Build feature map dynamically  avoids any manual naming mismatches
         metrics_dict = {
             "loc":              metrics.loc,
             "v(g)":             metrics.v_g,
@@ -260,7 +260,7 @@ def predict(metrics: CodeMetrics):
             "branchCount":      metrics.branchCount,
         }
 
-        # Print feature names for debugging — remove after confirming it works
+        # Print feature names for debugging  remove after confirming it works
         print(f"Expected features: {features}")
         print(f"Provided keys:     {list(metrics_dict.keys())}")
 
@@ -316,7 +316,7 @@ def run_stripe_migration():
 def predict_batch(modules: list[CodeMetrics]):
     """
     Predict defect risk for multiple modules at once.
-    Returns results sorted by risk_score descending — highest risk first.
+    Returns results sorted by risk_score descending  highest risk first.
     """
     if len(modules) > 100:
         raise HTTPException(status_code=400, detail="Batch limit is 100 modules per request.")
@@ -334,7 +334,7 @@ def predict_batch(modules: list[CodeMetrics]):
 @app.post("/predict/python", tags=["Prediction"])
 async def predict_python_file(file: UploadFile = File(...)):
     """
-    Upload a .py file — BugOracle extracts complexity metrics
+    Upload a .py file  BugOracle extracts complexity metrics
     per function using Radon and returns defect risk scores.
     """
     if not file.filename.endswith('.py'):
@@ -382,7 +382,7 @@ async def predict_python_file(file: UploadFile = File(...)):
             verdict, confidence = get_verdict(risk_score)
             top_factors  = get_top_factors(input_values)
             if verdict == "High Risk":
-                rec = f"Refactor {block.name} immediately — complexity={cc_val} (rank {rank})."
+                rec = f"Refactor {block.name} immediately  complexity={cc_val} (rank {rank})."
             elif verdict == "Medium Risk":
                 rec = f"Review {block.name} next sprint. Consider splitting into smaller functions."
             else:
