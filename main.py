@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # BugRadar API  main.py
 # ML-powered software defect prediction
 # Run locally: uvicorn main:app --reload
@@ -268,19 +268,7 @@ def predict(metrics: CodeMetrics):
 
         # Arrange values in the exact training order
         input_values = np.array([[feature_map[f] for f in features]])
-@app.get("/run-stripe-migration")
-def run_stripe_migration():
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(open("002_stripe_billing.sql").read())
-        conn.commit()
-        return {"status": "stripe migration complete"}
-    except Exception as e:
-        conn.rollback()
-        return {"error": str(e)}
-    finally:
-        conn.close()
+
         # Scale using the same scaler fitted on training data
         input_scaled = scaler.transform(input_values)
 
@@ -430,23 +418,21 @@ def get_scan_history():
         return {"scans": [dict(r._mapping) for r in rows]}
     return {"scans": []}
 
-# test trigger for BugOracle
-def unused_function():
-    x = 1
-    y = x + 1
-
-
-
-@app.get('/run-stripe-migration')
+@app.get("/run-stripe-migration")
 def run_stripe_migration():
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute(open('002_stripe_billing.sql').read())
+            cur.execute(open("002_stripe_billing.sql").read())
         conn.commit()
-        return {'status': 'stripe migration complete'}
+        return {"status": "stripe migration complete"}
     except Exception as e:
         conn.rollback()
-        return {'error': str(e)}
+        return {"error": str(e)}
     finally:
         conn.close()
+
+# test trigger for BugOracle
+def unused_function():
+    x = 1
+    y = x + 1
