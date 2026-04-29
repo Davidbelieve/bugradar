@@ -1,4 +1,4 @@
-﻿import os
+import os
 import streamlit as st
 import pandas as pd
 import requests
@@ -13,8 +13,18 @@ if "token" in params and "token" not in st.session_state:
     st.session_state["tier"] = params.get("tier", "free")
     st.query_params.clear()
 
+# Show upgrade success/cancel feedback
+if "upgrade" in st.query_params:
+    status = st.query_params["upgrade"]
+    if status == "success":
+        st.success("🎉 You're now on Pro! Enjoy unlimited repos and scans.")
+    elif status == "cancelled":
+        st.info("Upgrade cancelled. You're still on the free tier.")
+    st.query_params.clear()
+
 token = st.session_state.get("token")
 tier = st.session_state.get("tier", "free")
+
 
 def api_get(path):
     if not token:
@@ -27,11 +37,17 @@ def api_get(path):
         st.error(f"API error: {e}")
         return None
 
-def api_post(path, payload):
+
+def api_post(path, payload=None):
     if not token:
         return None
     try:
-        r = requests.post(f"{API_URL}{path}", json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=10)
+        r = requests.post(
+            f"{API_URL}{path}",
+            json=payload or {},
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+        )
         if r.status_code == 402:
             st.warning(r.json().get("detail", "Upgrade to Pro for more."))
             return None
@@ -41,6 +57,7 @@ def api_post(path, payload):
         st.error(f"API error: {e}")
         return None
 
+
 def api_delete(path):
     if not token:
         return False
@@ -49,6 +66,7 @@ def api_delete(path):
         return r.status_code == 204
     except Exception:
         return False
+
 
 if not token:
     st.title("🔍 BugOracle")
@@ -60,12 +78,29 @@ if not token:
 me = api_get("/auth/me")
 username = me.get("username", "unknown") if me else "unknown"
 
+# Refresh tier from API in case webhook already upgraded it
+billing = api_get("/billing/status")
+if billing:
+    live_tier = "pro" if billing.get("is_pro") else "free"
+    if live_tier != tier:
+        st.session_state["tier"] = live_tier
+        tier = live_tier
+
 with st.sidebar:
     st.write(f"**{username}**")
     if tier == "pro":
-        st.success("✨ Pro tier")
+        st.success("✨ Pro tier — unlimited repos & scans")
     else:
-        st.info("🆓 Free tier (3 repos / 100 scans/month)")
+        st.info("🆓 Free tier · 3 repos / 100 scans per month")
+        if st.button("⚡ Upgrade to Pro — $12/month", type="primary", use_container_width=True):
+            with st.spinner("Preparing checkout..."):
+                result = api_post("/billing/subscribe")
+            if result and "checkout_url" in result:
+                st.markdown(
+                    f'<meta http-equiv="refresh" content="0; url={result["checkout_url"]}">',
+                    unsafe_allow_html=True,
+                )
+                st.link_button("Continue to payment →", result["checkout_url"], type="primary")
     st.markdown("---")
     if st.button("Sign out"):
         for k in ["token", "tier"]:
