@@ -93,11 +93,11 @@ with st.sidebar:
     else:
         st.info("🆓 Free tier · 3 repos / 100 scans per month")
         if st.button("⚡ Upgrade to Pro — $12/month", type="primary", use_container_width=True):
-    with st.spinner("Preparing checkout..."):
-        result = api_post("/billing/subscribe")
-    if result and "checkout_url" in result:
-        st.session_state["checkout_url"] = result["checkout_url"]
-        st.rerun()
+                with st.spinner("Preparing checkout..."):
+                    result = api_post("/billing/subscribe")
+                if result and "checkout_url" in result:
+                    st.session_state["checkout_url"] = result["checkout_url"]
+                    st.rerun()
 
 if "checkout_url" in st.session_state:
     url = st.session_state["checkout_url"]
