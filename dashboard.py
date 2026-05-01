@@ -1,4 +1,4 @@
-import os
+﻿import os
 import streamlit as st
 import pandas as pd
 import requests
@@ -93,14 +93,16 @@ with st.sidebar:
     else:
         st.info("🆓 Free tier · 3 repos / 100 scans per month")
         if st.button("⚡ Upgrade to Pro — $12/month", type="primary", use_container_width=True):
-            with st.spinner("Preparing checkout..."):
-                result = api_post("/billing/subscribe")
-            if result and "checkout_url" in result:
-                st.markdown(
-                    f'<meta http-equiv="refresh" content="0; url={result["checkout_url"]}">',
-                    unsafe_allow_html=True,
-                )
-                st.link_button("Continue to payment →", result["checkout_url"], type="primary")
+    with st.spinner("Preparing checkout..."):
+        result = api_post("/billing/subscribe")
+    if result and "checkout_url" in result:
+        st.session_state["checkout_url"] = result["checkout_url"]
+        st.rerun()
+
+if "checkout_url" in st.session_state:
+    url = st.session_state["checkout_url"]
+    st.link_button("➡ Continue to Stripe payment", url, type="primary", use_container_width=True)
+    st.markdown(f'<script>window.open("{url}", "_self")</script>', unsafe_allow_html=True)
     st.markdown("---")
     if st.button("Sign out"):
         for k in ["token", "tier"]:
