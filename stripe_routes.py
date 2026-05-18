@@ -17,7 +17,7 @@ import stripe
 from fastapi import APIRouter, HTTPException, Request, Depends, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import text as _text
-
+from email_service import send_welcome_email
 from database import _engine
 from auth import get_current_user
 
@@ -105,7 +105,9 @@ async def stripe_webhook(request: Request):
                     {"sid": subscription_id, "uid": int(user_id)}
                 )
                 conn.commit()
-
+# Send welcome email
+user_email = data.get("customer_details", {}).get("email") or data.get("customer_email")
+send_welcome_email(to_email=user_email, username=f"user_{user_id}")
     elif event_type == "customer.subscription.deleted":
         subscription_id = data.get("id")
         if subscription_id:
